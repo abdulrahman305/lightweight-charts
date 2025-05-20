@@ -6,12 +6,14 @@ import { isNumber } from '../../helpers/strict-type-checks';
 
 import { Coordinate } from '../../model/coordinate';
 import { AreaData, BarData, BaselineData, CandlestickData, HistogramData, LineData, SeriesDataItemTypeMap, SingleValueData } from '../../model/data-consumer';
-import { IPrimitivePaneView } from '../../model/ipane-primitive';
+import { IPrimitivePaneView, PrimitivePaneViewZOrder } from '../../model/ipane-primitive';
+import { MismatchDirection } from '../../model/plot-list';
 import { RangeImpl } from '../../model/range-impl';
 import { SeriesType } from '../../model/series-options';
 import { Logical, TimePointIndex, visibleTimedValues } from '../../model/time-data';
 import { UpdateType } from '../../views/pane/iupdatable-pane-view';
 
+import { SeriesMarkersOptions } from './options';
 import {
 	SeriesMarkerRendererData,
 	SeriesMarkerRendererDataItem,
@@ -37,7 +39,7 @@ function isPriceMarker(position: SeriesMarkerPosition): position is SeriesMarker
 }
 
 function getPrice(seriesData: SeriesDataItemTypeMap<unknown>[SeriesType], marker: InternalSeriesMarker<TimePointIndex>): number | undefined {
-	if (isPriceMarker(marker.position) && marker.price) {
+	if (isPriceMarker(marker.position) && marker.price !== undefined) {
 		return marker.price;
 	}
 	if (isValueData(seriesData)) {
@@ -140,19 +142,21 @@ export class SeriesMarkersPaneView<HorzScaleItem> implements IPrimitivePaneView 
 	private readonly _chart: IChartApiBase<HorzScaleItem>;
 	private _data: SeriesMarkerRendererData;
 	private _markers: InternalSeriesMarker<TimePointIndex>[] = [];
+	private _options: SeriesMarkersOptions;
 
 	private _invalidated: boolean = true;
 	private _dataInvalidated: boolean = true;
 
 	private _renderer: SeriesMarkersRenderer = new SeriesMarkersRenderer();
 
-	public constructor(series: ISeriesApi<SeriesType, HorzScaleItem>, chart: IChartApiBase<HorzScaleItem>) {
+	public constructor(series: ISeriesApi<SeriesType, HorzScaleItem>, chart: IChartApiBase<HorzScaleItem>, options: SeriesMarkersOptions) {
 		this._series = series;
 		this._chart = chart;
 		this._data = {
 			items: [],
 			visibleRange: null,
 		};
+		this._options = options;
 	}
 
 	public renderer(): SeriesMarkersRenderer | null {
@@ -165,7 +169,7 @@ export class SeriesMarkersPaneView<HorzScaleItem> implements IPrimitivePaneView 
 		}
 
 		const layout = this._chart.options()['layout'];
-		this._renderer.setParams(layout.fontSize, layout.fontFamily);
+		this._renderer.setParams(layout.fontSize, layout.fontFamily, this._options.zOrder);
 		this._renderer.setData(this._data);
 
 		return this._renderer;
@@ -181,6 +185,15 @@ export class SeriesMarkersPaneView<HorzScaleItem> implements IPrimitivePaneView 
 		if (updateType === 'data') {
 			this._dataInvalidated = true;
 		}
+	}
+
+	public updateOptions(options: SeriesMarkersOptions): void {
+		this._invalidated = true;
+		this._options = options;
+	}
+
+	public zOrder(): PrimitivePaneViewZOrder {
+		return this._options.zOrder === 'aboveSeries' ? 'top' : this._options.zOrder;
 	}
 
 	protected _makeValid(): void {
@@ -246,7 +259,7 @@ export class SeriesMarkersPaneView<HorzScaleItem> implements IPrimitivePaneView 
 				};
 			}
 
-			const dataAt = ensureNotNull(this._series.dataByIndex(marker.time, -1));
+			const dataAt = this._series.dataByIndex(marker.time, MismatchDirection.None);
 			if (dataAt === null) {
 				continue;
 			}

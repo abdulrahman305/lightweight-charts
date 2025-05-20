@@ -192,6 +192,15 @@ export interface PriceScaleOptions {
 	 * @defaultValue 0
 	 */
 	minimumWidth: number;
+
+	/**
+	 * Ensures that tick marks are always visible at the very top and bottom of the price scale,
+	 * regardless of the data range. When enabled, a tick mark will be drawn at both edges of the scale,
+	 * providing clear boundary indicators.
+	 *
+	 * @defaultValue false
+	 */
+	ensureEdgeTickMarksVisible: boolean;
 }
 
 interface RangeCache {
@@ -224,6 +233,8 @@ export class PriceScale {
 	private _priceRangeSnapshot: PriceRangeImpl | null = null;
 	private _invalidatedForRange: RangeCache = { isValid: false, visibleBars: null };
 
+	private _isCustomPriceRange: boolean = false;
+
 	private _marginAbove: number = 0;
 	private _marginBelow: number = 0;
 
@@ -233,6 +244,7 @@ export class PriceScale {
 	private _modeChanged: Delegate<PriceScaleState, PriceScaleState> = new Delegate();
 
 	private _dataSources: IPriceDataSource[] = [];
+	private _formatterSource: IPriceDataSource | null = null;
 	private _cachedOrderedSources: IPriceDataSource[] | null = null;
 
 	private _marksCache: MarksCache | null = null;
@@ -250,7 +262,12 @@ export class PriceScale {
 		this._layoutOptions = layoutOptions;
 		this._localizationOptions = localizationOptions;
 		this._colorParser = colorParser;
-		this._markBuilder = new PriceTickMarkBuilder(this, 100, this._coordinateToLogical.bind(this), this._logicalToCoordinate.bind(this));
+		this._markBuilder = new PriceTickMarkBuilder(
+			this,
+			100,
+			this._coordinateToLogical.bind(this),
+			this._logicalToCoordinate.bind(this)
+		);
 	}
 
 	public id(): string {
@@ -294,6 +311,10 @@ export class PriceScale {
 		return this._options.autoScale;
 	}
 
+	public isCustomPriceRange(): boolean {
+		return this._isCustomPriceRange;
+	}
+
 	public isLog(): boolean {
 		return this._options.mode === PriceScaleMode.Logarithmic;
 	}
@@ -304,6 +325,10 @@ export class PriceScale {
 
 	public isIndexedTo100(): boolean {
 		return this._options.mode === PriceScaleMode.IndexedTo100;
+	}
+
+	public getLogFormula(): LogFormula {
+		return this._logFormula;
 	}
 
 	public mode(): PriceScaleState {
@@ -419,6 +444,11 @@ export class PriceScale {
 
 		this._marksCache = null;
 		this._priceRange = newPriceRange;
+	}
+
+	public setCustomPriceRange(newPriceRange: PriceRangeImpl | null): void {
+		this.setPriceRange(newPriceRange);
+		this._toggleCustomPriceRange(newPriceRange !== null);
 	}
 
 	public isEmpty(): boolean {
@@ -542,22 +572,10 @@ export class PriceScale {
 	}
 
 	public orderedSources(): readonly IPriceDataSource[] {
-		if (this._cachedOrderedSources) {
-			return this._cachedOrderedSources;
+		if (!this._cachedOrderedSources) {
+			this._cachedOrderedSources = sortSources<IPriceDataSource>(this._dataSources);
 		}
 
-		let sources: IPriceDataSource[] = [];
-		for (let i = 0; i < this._dataSources.length; i++) {
-			const ds = this._dataSources[i];
-			if (ds.zorder() === null) {
-				ds.setZorder(i + 1);
-			}
-
-			sources.push(ds);
-		}
-
-		sources = sortSources<IPriceDataSource>(sources);
-		this._cachedOrderedSources = sources;
 		return this._cachedOrderedSources;
 	}
 
@@ -780,7 +798,7 @@ export class PriceScale {
 	}
 
 	public formatPriceAbsolute(price: number): string {
-		return this._formatPrice(price as BarPrice, ensureNotNull(this._formatterSource()).formatter());
+		return this._formatPrice(price as BarPrice, ensureNotNull(this._formatterSource).formatter());
 	}
 
 	public formatPricePercentage(price: number, baseValue: number): string {
@@ -803,12 +821,30 @@ export class PriceScale {
 		this._dataSources.forEach((s: IPriceDataSource) => s.updateAllViews());
 	}
 
+	public hasVisibleEdgeMarks(): boolean {
+		return this._options.ensureEdgeTickMarksVisible && this.isAutoScale();
+	}
+
+	public getEdgeMarksPadding(): number {
+		return this.fontSize() / 2;
+	}
+
 	public updateFormatter(): void {
 		this._marksCache = null;
-		const formatterSource = this._formatterSource();
+
+		let zOrder = Infinity;
+		this._formatterSource = null;
+		// choose source with the lowest zorder
+		for (const source of this._dataSources) {
+			if (source.zorder() < zOrder) {
+				zOrder = source.zorder();
+				this._formatterSource = source;
+			}
+		}
+
 		let base = 100;
-		if (formatterSource !== null) {
-			base = Math.round(1 / formatterSource.minMove());
+		if (this._formatterSource !== null) {
+			base = Math.round(1 / this._formatterSource.minMove());
 		}
 
 		this._formatter = defaultPriceFormatter;
@@ -819,9 +855,9 @@ export class PriceScale {
 			this._formatter = new PriceFormatter(100, 1);
 			base = 100;
 		} else {
-			if (formatterSource !== null) {
+			if (this._formatterSource !== null) {
 				// user
-				this._formatter = formatterSource.formatter();
+				this._formatter = this._formatterSource.formatter();
 			}
 		}
 
@@ -843,11 +879,8 @@ export class PriceScale {
 		return this._colorParser;
 	}
 
-	/**
-	 * @returns The {@link IPriceDataSource} that will be used as the "formatter source" (take minMove for formatter).
-	 */
-	private _formatterSource(): IPriceDataSource | null {
-		return this._dataSources[0] || null;
+	private _toggleCustomPriceRange(v: boolean): void {
+		this._isCustomPriceRange = v;
 	}
 
 	private _topMarginPx(): number {
@@ -907,6 +940,10 @@ export class PriceScale {
 
 	// eslint-disable-next-line complexity
 	private _recalculatePriceRangeImpl(): void {
+		if (this.isCustomPriceRange() && !this.isAutoScale()) {
+			return;
+		}
+
 		const visibleBars = this._invalidatedForRange.visibleBars;
 		if (visibleBars === null) {
 			return;
@@ -960,6 +997,11 @@ export class PriceScale {
 			}
 		}
 
+		if (this.hasVisibleEdgeMarks()) {
+			marginAbove = Math.max(marginAbove, this.getEdgeMarksPadding());
+			marginBelow = Math.max(marginBelow, this.getEdgeMarksPadding());
+		}
+
 		if (marginAbove !== this._marginAbove || marginBelow !== this._marginBelow) {
 			this._marginAbove = marginAbove;
 			this._marginBelow = marginBelow;
@@ -970,7 +1012,7 @@ export class PriceScale {
 		if (priceRange !== null) {
 			// keep current range is new is empty
 			if (priceRange.minValue() === priceRange.maxValue()) {
-				const formatterSource = this._formatterSource();
+				const formatterSource = this._formatterSource;
 				const minMove = formatterSource === null || this.isPercentage() || this.isIndexedTo100() ? 1 : formatterSource.minMove();
 
 				// if price range is degenerated to 1 point let's extend it by 10 min move values
@@ -1009,8 +1051,6 @@ export class PriceScale {
 				this._logFormula = logFormulaForPriceRange(null);
 			}
 		}
-
-		this._invalidatedForRange.isValid = true;
 	}
 
 	private _getCoordinateTransformer(): PriceTransformer | null {

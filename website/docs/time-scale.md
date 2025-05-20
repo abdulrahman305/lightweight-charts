@@ -6,37 +6,61 @@ sidebar_position: 5
 
 ## Overview
 
-Time scale (or time axis) is a horizontal scale at the bottom of the chart that displays the time of bars.
+Time scale (or time axis) is a horizontal scale that displays the time of data points at the bottom of the chart.
 
 ![Time scale](/img/time-scale.png "Time scale")
 
-Time scale controls a current visible range, allows you to affect or change it, and can convert a time point or [an index](/api/type-aliases/Logical.md) to a coordinate and vice versa (basically everything related to a x-scale of a chart).
+The horizontal scale can also represent price or other custom values. Refer to the [Chart types](/chart-types.mdx) article for more information.
 
-Also, it has a couple of events you can subscribe to to be notified when anything is happened.
+### Time scale appearance
 
-To work with time scale you can either change its options or use methods [ITimeScaleApi](/api/interfaces/ITimeScaleApi.md) which could be retrieved by using [`IChartApi.timeScale`](/api/interfaces/IChartApi.md#timescale) method.
-All available options are declared in [TimeScaleOptions](/api/interfaces/TimeScaleOptions.md) interface.
+Use [`TimeScaleOptions`](/api/interfaces/TimeScaleOptions.md) to adjust the time scale appearance. You can specify these options in two ways:
 
-Note that you can apply options either via [`ITimeScaleApi.applyOptions`](/api/interfaces/ITimeScaleApi.md#applyoptions) or [`IChartApi.applyOptions`](/api/interfaces/IChartApi.md#applyoptions) with `timeScale` sub-object in passed options - these 2 approaches both have the same effect.
+- On chart initialization. To do this, provide the desired options as a [`timeScale`](api/interfaces/ChartOptionsBase#timescale) parameter when calling [`createChart`](/api/functions/createChart.md).
+- On the fly using either the [`ITimeScaleApi.applyOptions`](/api/interfaces/ITimeScaleApi.md#applyoptions) or [`IChartApi.applyOptions`](/api/interfaces/IChartApi.md#applyoptions) method. Both methods produce the same result.
 
-## Logical range
+### Time scale API
 
-A [logical range](/api/type-aliases/LogicalRange.md) is an object with 2 properties: `from` and `to`, which are numbers and represent logical indexes on the time scale.
+Call the [`IChartApi.timeScale`](/api/interfaces/IChartApi.md#timescale) method to get an instance of the [`ITimeScaleApi`](/api/interfaces/ITimeScaleApi.md) interface. This interface provides an extensive API for controlling the time scale. For example, you can adjust the visible range, convert a time point or [index](/api/type-aliases/Logical.md) to a coordinate, and subscribe to events.
 
-The starting point of the time scale's logical range is the first data item among all series.
-Before that point all indexes are negative, starting from that point - positive.
+```javascript
+chart.timeScale().resetTimeScale();
+```
 
-Indexes might have fractional parts, for instance `4.2`, due to the time-scale being continuous rather than discrete.
+## Visible range
 
-Integer part of the logical index means index of the fully visible bar.
-Thus, if we have `5.2` as the last visible logical index (`to` field), that means that the last visible bar has index 5, but we also have partially visible (for 20%) 6th bar.
-Half (e.g. `1.5`, `3.5`, `10.5`) means exactly a middle of the bar.
+Visible range is a chart area that is currently visible on the canvas. This area can be measured with both [data](#data-range) and [logical](#logical-range) range.
+Data range usually includes bar timestamps, while logical range has bar indices.
+
+You can adjust the visible range using the following methods:
+
+- [`setVisibleRange`]
+- [`getVisibleRange`]
+- [`setVisibleLogicalRange`]
+- [`getVisibleLogicalRange`]
+
+### Data range
+
+The data range includes only values from the first to the last bar visible on the chart. If the visible area has empty space, this part of the scale is not included in the data range.
+
+Note that you cannot extrapolate time with the [`setVisibleRange`] method. For example, the chart does not have data prior `2018-01-01` date. If you set the visible range from `2016-01-01`, it will be automatically adjusted to `2018-01-01`.
+
+If you want to adjust the visible range more flexible, operate with the [logical range](#logical-range) instead.
+
+### Logical range
+
+The logical range represents a continuous line of values. These values are logical [indices](/api/type-aliases/Logical.md) on the scale that illustrated as red lines in the image below:
 
 ![Logical range](/img/logical-range.png "Logical range")
 
-Red vertical lines here are borders between bars.
+The logical range starts from the first data point across all series, with negative indices before it and positive ones after.
 
-Thus, the visible logical range on the chart above is approximately from `-4.73` to `5.05`.
+The indices can have fractional parts. The integer part represents the fully visible bar, while the fractional part indicates partial visibility. For example, the `5.2` index means that the fifth bar is fully visible, while the sixth bar is 20% visible.
+A half-index, such as `3.5`, represents the middle of the bar.
+
+In the library, the logical range is represented with the [`LogicalRange`](/api/type-aliases/LogicalRange.md) object. This object has the `from` and `to` properties, which are logical indices on the time scale. For example, the visible logical range on the chart above is approximately from `-4.73` to `5.05`.
+
+The [`setVisibleLogicalRange`] method allows you to specify the visible range beyond the bounds of the available data. This can be useful for setting a [chart margin](#chart-margin) or aligning series visually.
 
 ## Chart margin
 
@@ -45,7 +69,7 @@ Margin is the space between the chart's borders and the series. It depends on th
 - [`barSpacing`](/api/interfaces/TimeScaleOptions.md#barspacing). The default value is `6`.
 - [`rightOffset`](/api/interfaces/TimeScaleOptions.md#rightoffset). The default value is `0`.
 
-You can specify these options as described in [Overview](#overview).
+You can specify these options as described [above](#time-scale-appearance).
 
 Note that if a series contains only a few data points, the chart may have a large margin on the left side.
 
@@ -73,3 +97,8 @@ For example, the code sample below adjusts the range by half a bar-width on both
 const vr = chart.timeScale().getVisibleLogicalRange();
 chart.timeScale().setVisibleLogicalRange({ from: vr.from + 0.5, to: vr.to - 0.5 });
 ```
+
+[`setVisibleRange`]: /api/interfaces/ITimeScaleApi.md#setvisiblerange
+[`getVisibleRange`]: /api/interfaces/ITimeScaleApi.md#getvisiblerange
+[`setVisibleLogicalRange`]: /api/interfaces/ITimeScaleApi.md#setvisiblelogicalrange
+[`getVisibleLogicalRange`]: /api/interfaces/ITimeScaleApi.md#getvisiblelogicalrange

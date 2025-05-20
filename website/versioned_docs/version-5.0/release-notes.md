@@ -16,6 +16,45 @@ toc_max_heading_level: 2
 
 <!-- markdownlint-disable no-emphasis-as-heading -->
 <!-- ^ using emphasis as headings so we don't have duplicate headers -->
+## 5.0.7
+
+**Enhancements**
+
+- Added price scale visible range control with new methods in `IPriceScaleApi`: `setVisibleRange(range)`, `getVisibleRange()`, and `setAutoScale(on)`. These methods allow for programmatic control of the visible price range on a price scale. Also added `ensureEdgeTickMarksVisible` option to `PriceScaleOptions`, which ensures tick marks are always visible at the very top and bottom of the price scale, providing clear boundary indicators. These features are particularly useful for charts with zooming and panning disabled that are primarily for display purposes. (PR [#1856](https://github.com/tradingview/lightweight-charts/pull/1856))
+- Added control over the rendering stacking order of series markers through a new `zOrder` option in the series markers plugin. This enhancement provides greater flexibility in controlling marker visibility and layering in complex charts. (PR [#1876](https://github.com/tradingview/lightweight-charts/pull/1876)).
+
+[Changes since the last published version](https://github.com/tradingview/lightweight-charts/compare/v5.0.6..v5.0.7).
+
+## 5.0.6
+
+**Enhancements**
+
+- Implemented series order functionality, allowing control over the rendering order of series within a pane. Series with higher order values are rendered on top of those with lower values. Added two new methods to `ISeriesApi`: `seriesOrder()` to get the current order index and `setSeriesOrder(order)` to set a specific order. (PR [#1868](https://github.com/tradingview/lightweight-charts/pull/1868))
+
+[Changes since the last published version](https://github.com/tradingview/lightweight-charts/compare/v5.0.5..v5.0.6).
+
+## 5.0.5
+
+**Bug Fixes**
+
+- Fixed an issue where the series marker plugin could throw an exception if the series data required for individual markers could not be found (such as when the data is cleared or changed via ⁠setData on the series). (PR [#1845](https://github.com/tradingview/lightweight-charts/pull/1845))
+
+[Changes since the last published version](https://github.com/tradingview/lightweight-charts/compare/v5.0.4..v5.0.5).
+
+## 5.0.4
+
+**Improvements**
+
+- Fixed performance degradation when adding series markers to charts with large datasets (15,000+ data points) by optimizing marker calculations to only run when necessary. (PR [#1835](https://github.com/tradingview/lightweight-charts/pull/1835), fixes [#1808](https://github.com/tradingview/lightweight-charts/issues/1808))
+- Added price-based positioning for series markers, allowing more precise control over marker placement. New position types include `atPriceTop`, `atPriceBottom`, and `atPriceMiddle`, which require a `price` value to be specified. (PR [#1826](https://github.com/tradingview/lightweight-charts/pull/1826), thanks to [@EranGrin](https://github.com/EranGrin))
+- Added `MagnetOHLC` to `CrosshairMode`. This mode sticks the crosshair's horizontal line to the price value of a single-value series or to the open/high/low/close price of OHLC-based series. (PR [#1831](https://github.com/tradingview/lightweight-charts/pull/1831), thanks to [@Jonney](https://github.com/Jonney))
+
+**Bug Fixes**
+
+- Fixed an issue where the crosshair marker would be visible on the first data point when the chart is initially loaded, before any user interaction. This behavior has been reverted to match version 4, where the crosshair remains hidden until user interaction. (PR [#1840](https://github.com/tradingview/lightweight-charts/pull/1840))
+
+[Changes since the last published version](https://github.com/tradingview/lightweight-charts/compare/v5.0.3..v5.0.4).
+
 ## 5.0.3
 
 **Bug Fixes**
