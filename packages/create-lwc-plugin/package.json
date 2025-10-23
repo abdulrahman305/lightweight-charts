@@ -5,7 +5,11 @@
   "license": "MIT",
   "author": "TradingView, Inc.",
   "description": "Wizard-like CLI tool for scaffolding a new plugin for Lightweight Charts™",
-  "keywords": ["lightweight-charts", "lwc-plugin", "plugins"],
+  "keywords": [
+    "lightweight-charts",
+    "lwc-plugin",
+    "plugins"
+  ],
   "bin": {
     "create-lwc-plugin": "index.js"
   },
@@ -39,5 +43,9 @@
     "@types/node": "^20.5.1",
     "picocolors": "^1.0.0",
     "unbuild": "^3.5.0"
+    "unbuild": "^1.2.1"
+  },
+  "dependencies": {
+    "create-lwc-plugin": "file:"
   }
 }
